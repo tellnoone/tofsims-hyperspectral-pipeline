@@ -1,0 +1,124 @@
+# ToF-SIMS hyperspectral pipeline configuration.
+#
+# Every value the analysis depends on lives here, so a new dataset is processed by
+# editing this file rather than the code. Values set to `auto` are derived from the
+# data itself; the defaults below reproduce the published Fossil Fly results.
+
+project:
+  name: "tofsims_fossilfly_project"
+  version: "2.0.0"
+
+dataset:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  figures_dir: "data/processed"     # set to e.g. "figures" to separate plots from arrays
+  file_pattern: "*.bmp"
+
+# How to decode the instrument's non-standard BMP export.
+# The exporter writes a normal 54-byte BMP header (claiming 64bpp) followed by
+# `num_channels` interleaved uint16 planes; only `channel_index` holds ion counts.
+io:
+  header_bytes: 54
+  num_channels: 4
+  channel_index: 1
+  dtype: "uint16"
+  flip_vertical: true               # BMP stores rows bottom-to-top
+  dimensions_from_header: true      # false -> use `fallback_dimensions`
+  fallback_dimensions: [640, 640]
+  require_bmp_magic: true
+
+# Metadata is extracted field-by-field from each filename. Each entry is a regex
+# with one capture group; a field that matches nothing becomes null rather than
+# failing the run.
+metadata:
+  fields:
+    polarity: '(?:^|[\s_\-])(neg(?:ative)?|pos(?:itive)?)(?:[\s_\-]|$)'
+    mass: '(\d+\.?\d*\s*±\s*\d+\.?\d*\s*u)'
+    shots: '(?:^|[\s_\-])(\d+)sh(?:ots)?(?:[\s_\-]|$)'
+    current: '(\d+(?:\.\d+)?pA)'
+    dimensions: '(\d+x\d+x\d+pix)'
+  # Manual corrections for files whose names omit a field. Keys are matched as
+  # case-insensitive substrings of the filename.
+  overrides: {}
+    # "FossilFly Pos":
+    #   shots: 100
+    #   dimensions: "10x14x64pix"
+
+# Which images form the analysis cube. `auto` picks the most common image shape in
+# the dataset and the polarity that dominates it; every other image is treated as
+# the secondary (cross-polarity) group.
+analysis:
+  target_shape: auto                # or [640, 640]
+  polarity: auto                    # or "Neg" / "Pos"
+  sort_channels_by_mass: true
+
+preprocessing:
+  outlier_clip_percentile: 99.5
+  normalization_method: "tic"       # tic | minmax | none
+  eps: 1.0e-8
+
+decomposition:
+  random_state: 42
+  scatter_subsample: 20000
+  pca:
+    n_components: auto              # auto -> keep all channels
+  nmf:
+    n_components: auto              # auto -> elbow of the reconstruction-error sweep
+    sweep: [2, 3, 4, 5]
+    max_iter: 1000
+    init: "nndsvda"
+    abundance_clip_percentile: 99.5
+  umap:
+    enabled: true
+    n_neighbors: 30
+    min_dist: 0.1
+    n_components: 2
+    metric: "euclidean"
+
+segmentation:
+  n_clusters: auto                  # auto -> number of NMF endmembers
+  oversegment_k: auto               # auto -> n_clusters + 1 (over-segmentation check)
+  kmeans:
+    n_init: 10
+  gmm:
+    covariance_type: "full"
+  hdbscan:
+    enabled: true
+    min_cluster_size: auto          # auto -> 2% of foreground pixels (floor 50)
+    min_samples: 20
+    metric: "euclidean"
+    cluster_selection_method: "eom"
+    sweep_min_cluster_size: [100, 200, 500, 1000]
+    sweep_min_samples: [5, 10, 20]
+
+stats:
+  p_adjust: "bonferroni"            # any method accepted by scikit-posthocs
+  effect_size:
+    large: 0.14
+    medium: 0.06
+  colocalization:
+    strong: 0.5
+    moderate: 0.3
+  p_display_floor: 1.0e-50
+
+figures:
+  dpi: 250
+  report_dpi: 300
+  intensity_cmap: "hot"
+  diverging_cmap: "RdBu_r"
+  segment_cmap: "Set1"
+  abundance_clip_percentile: 75     # display clip for skewed abundance maps
+
+# Optional, purely cosmetic. Maps an m/z value to a display label and colour used in
+# figure legends. Leave empty for a new dataset and generic "m/z X" labels are used.
+channel_semantics:
+  masses:
+    62.96: {label: "PO2-", color: "#4daf4a"}
+    78.95: {label: "PO3-", color: "#377eb8"}
+    96.94: {label: "PO4H2-", color: "#984ea3"}
+    103.91: {label: "Organic fragment", color: "#e41a1c"}
+    123.95: {label: "Mineral matrix", color: "#ff7f00"}
+    53.94: {label: "Fe+ (positive mode)", color: "#ff7f00"}
+  # Display names for segments, in endmember order. Leave empty for "Segment N".
+  segment_labels: []
+  rgb_channels: auto                # auto -> spread across available channels

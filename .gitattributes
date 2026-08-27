@@ -1,0 +1,12 @@
+# Normalise line endings so the repo is identical on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.bmp binary
+*.png binary
+*.npz binary
+*.npy binary
+*.docx binary
+
+# Notebooks are JSON; keep diffs readable and avoid merge-noise on outputs.
+*.ipynb text
