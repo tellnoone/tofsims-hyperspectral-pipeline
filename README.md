@@ -116,14 +116,38 @@ python scripts/run_pipeline.py --stage segment,stats # or several
 python scripts/run_pipeline.py --list-stages
 ```
 
-| Stage | Does | Key outputs |
-|---|---|---|
-| `load` | Parses the BMP exports, recovers metadata | `fossilfly_clean_stack.npz`, `metadata.json`, `01_*.png` |
-| `overview` | Channel composites and correlation structure | `02a_*.png` |
-| `decompose` | PCA, NMF, UMAP | `02b_*.npz`, `02b_*.png` |
-| `segment` | 4 segmentations + agreement metrics | `fossilfly_segments.npz`, `03_*.png` |
-| `stats` | Kruskal-Wallis, Dunn's post-hoc, colocalization | `04_statistical_results.csv`, `04_*.png` |
-| `figures` | Publication-style master figures | `05_fig*.png` |
+| Stage | Does | Key outputs | Runtime |
+|---|---|---|---|
+| `load` | Parses the BMP exports, recovers metadata | `fossilfly_clean_stack.npz`, `metadata.json`, `01_*.png` | ~20 s |
+| `overview` | Channel composites and correlation structure | `02a_*.png` | ~25 s |
+| `decompose` | PCA, NMF, UMAP | `02b_*.npz`, `02b_*.png` | ~3 min |
+| `segment` | 4 segmentations + agreement metrics | `fossilfly_segments.npz`, `03_*.png` | ~90 s |
+| `stats` | Kruskal-Wallis, Dunn's post-hoc, colocalization | `04_statistical_results.csv`, `04_*.png` | ~30 s |
+| `figures` | Publication-style master figures | `05_fig*.png` | ~20 s |
+
+**A full run takes about 6 minutes** on a normal laptop (7 images, 640×640, ~48k
+foreground pixels), producing 47 files. UMAP dominates that time — `--no-umap`
+brings a complete run down to roughly 90 seconds at the cost of the UMAP and
+HDBSCAN panels.
+
+### Running the notebooks instead
+
+The notebooks reproduce the same analysis interactively and **must be run in
+order**, because each reads artefacts the previous one wrote:
+
+```
+notebooks/exploratory/01_data_loading.ipynb
+notebooks/analysis/02a_clean_overview.ipynb
+notebooks/analysis/02b_pca_nmf_umap.ipynb
+notebooks/analysis/03_segmentation.ipynb
+notebooks/analysis/04_statistical_validation.ipynb
+notebooks/analysis/05_master_figures.ipynb
+```
+
+They are committed without stored outputs, to keep diffs readable. **A copy of each
+notebook with all outputs and figures rendered inline is in
+[`notebooks/executed/`](notebooks/executed/)** — open those to read the results
+without running anything.
 
 Useful flags:
 
@@ -181,6 +205,7 @@ is what the interpretation rests on.
 │   ├── viz/                       # all figure generation
 │   └── utils/                     # paths, constants, formatting
 ├── notebooks/                     # thin wrappers over src/, for exploration
+│   └── executed/                  # same notebooks with outputs rendered inline
 ├── scripts/run_pipeline.py        # CLI entry point
 ├── tests/                         # unit + end-to-end regression tests
 └── docs/legacy/                   # superseded exploratory scripts, kept for reference
