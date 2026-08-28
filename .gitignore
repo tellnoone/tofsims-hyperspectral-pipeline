@@ -32,10 +32,20 @@ Thumbs.db
 Data/raw/
 data/raw/
 
-# The decoded ion-count stack is the same measurement data in a different
-# container, so it is withheld on the same basis as the raw exports.
+# Any artefact from which the facility's measurement values can be recovered is
+# withheld on the same basis as the raw exports:
+#   clean_stack        - the decoded ion counts themselves
+#   02b_pca_components - full-rank PCA, so scores @ loadings inverts exactly
+#   02b_nmf_components - W @ H reconstructs raw counts at r = 0.978
+#   01_summary_stats   - direct per-channel min/max/mean/median/std
 Data/processed/fossilfly_clean_stack.npz
 data/processed/fossilfly_clean_stack.npz
+Data/processed/02b_pca_components.npz
+data/processed/02b_pca_components.npz
+Data/processed/02b_nmf_components.npz
+data/processed/02b_nmf_components.npz
+Data/processed/01_summary_statistics.csv
+data/processed/01_summary_statistics.csv
 
 # Generated figures are large and fully regenerable; the report figures used in
 # the write-up are kept in docs/figures/ instead.
