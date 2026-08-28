@@ -55,65 +55,81 @@ epsilon-squared 0.73, all p < 0.001):
 
 The remaining report figures are in [`docs/figures/`](docs/figures/).
 
+These figures are rendered images published as a record of the analysis. The arrays
+behind them — the NMF decomposition in particular — are not distributed, so the
+figures cannot be regenerated from this repository. See
+[Data availability](#data-availability).
+
 ---
 
 ## Data availability
 
-**Both the raw instrument exports and the decoded ion-count data are withheld
-pending permission from the analysing facility.** Specifically, neither of these
-is distributed:
+**No measurement values from the specimen are published in this repository, in any
+form.** The following are withheld pending permission from the analysing facility:
 
-- `Data/raw/*.bmp` — the instrument's native exports
-- `Data/processed/fossilfly_clean_stack.npz` — the decoded ion-count images
+| Withheld | Why |
+|---|---|
+| `Data/raw/*.bmp` | The instrument's native exports |
+| `fossilfly_clean_stack.npz` | The decoded ion-count images |
+| `02b_pca_components.npz` | Full-rank PCA: `scores @ loadings` inverts to the measurement matrix exactly |
+| `02b_nmf_components.npz` | `W @ H` reconstructs raw ion counts (r = 0.978) |
+| `01_summary_statistics.csv` | Direct per-channel min/max/mean/median/std |
 
-The second is excluded on the same basis as the first: it is the same measurement
-data in a different container, so committing it would redistribute exactly what
-withholding the raw files is meant to protect.
+The last three are excluded because a decomposition retaining every component is an
+invertible rotation, not a summary: the fitted parameters are the measurements in
+another basis. Any artefact from which per-pixel intensities can be recovered is
+treated the same way as the raw exports.
 
-### What this means for verification
+What remains committed are classifications and test statistics — segment labels, a
+foreground mask, a UMAP embedding, and the result tables. None of them contain or
+permit recovery of ion-count values.
 
-Be aware of the limit this imposes. Every pipeline stage that touches per-pixel
-intensities needs the ion-count stack, so **no stage of the analysis can be re-run
-against the fossil dataset from this repository**. Running `segment`, `stats` or
-`figures` without it fails with a clear error pointing at the missing stack.
+### Validating the pipeline
 
-Two things remain possible:
-
-**1. Inspect the committed result artefacts.** The downstream outputs are committed,
-so the reported numbers can be read back and checked for internal consistency:
-
-| Check | Artefact | Value |
-|---|---|---|
-| Segment sizes | `fossilfly_segments.npz` | {32238, 8924, 7132} |
-| Foreground pixel count | `02b_foreground_mask.npy` | 48,294 |
-| Segment labels re-derived from NMF abundances | `02b_nmf_components.npz` + `fossilfly_segments.npz` | exact match |
-| NMF rank and reconstruction error | `02b_nmf_components.npz` | k = 3, 145738.2 |
-| NMF endmember spectra | `02b_nmf_components.npz` | `W` (409600x3), `H` (3x5) |
-| PCA explained variance | `02b_pca_components.npz` | 80.42% in first 3 |
-| Reported statistics | `04_statistical_results.csv` | peak eps-squared 0.7311 at m/z 78.95 |
-| Cross-method agreement | `03_cross_method_agreement.csv` | ARI/NMI per method pair |
-
-The third row is the only genuine recomputation available: the dominant-endmember
-segmentation can be re-derived from the NMF abundance maps and checked against the
-stored labels, and it matches exactly.
-
-**What cannot be checked** without the ion-count stack: re-running Kruskal-Wallis or
-Dunn's post-hoc, recomputing segment chemistry profiles, re-fitting PCA/NMF/UMAP
-from source, or regenerating the Figure 1 channel maps and Figure 4 chemistry
-panels. Those all require per-pixel intensities.
-
-**2. Run the pipeline on synthetic data.** `tests/test_pipeline_end_to_end.py::TestUnseenDataset`
-builds a dataset from scratch — a different pixel grid, channel count and naming
-scheme — and runs all six stages over it with the stock config. This verifies the
-code end to end, independently of any withheld data:
+**The test suite is the primary means of validation, and it needs no withheld data:**
 
 ```bash
-pytest tests/test_pipeline_end_to_end.py::TestUnseenDataset -v
+pytest
 ```
 
-Generated PNGs are also not committed (22 MB, and regenerable given the source
-data); the report figures used in the write-up are in
-[`docs/figures/`](docs/figures/).
+Expect **24 passed, 7 skipped**. The skips are the regression tests that require the
+original dataset. Among the passes,
+`tests/test_pipeline_end_to_end.py::TestUnseenDataset` builds a synthetic dataset
+from scratch — a different pixel grid, channel count and naming scheme — and runs
+all six stages over it with the stock config. That exercises the entire pipeline
+end to end, independently of any withheld data.
+
+### What a reader can and cannot check
+
+**Cannot: re-run any stage of the fossil analysis.** Every stage needs data that is
+not published. Verified against a fresh clone of this repository:
+
+| Stage | Result | Missing |
+|---|---|---|
+| `overview` | fails | `fossilfly_clean_stack.npz` |
+| `decompose` | fails | `fossilfly_clean_stack.npz` |
+| `segment` | fails | `02b_nmf_components.npz` |
+| `stats` | fails | `02b_nmf_components.npz` |
+| `figures` | fails | `fossilfly_clean_stack.npz` |
+
+**Can: read the reported results and check them for internal consistency.** These
+all pass against a fresh clone:
+
+| Check | Result |
+|---|---|
+| Segment sizes from `labels_dominant` | {32238, 8924, 7132} |
+| Foreground pixel count from the mask | 48,294 |
+| `seg_dominant` map agrees with labels scattered onto the mask | consistent |
+| HDBSCAN noise fraction recomputed from labels vs `segmentation_metrics.csv` | 52.72% both |
+| `n_pixels` in `04_statistical_results.csv` vs the mask | agrees |
+| UMAP embedding row count vs the mask | agrees |
+
+These confirm the published artefacts are mutually consistent and that the reported
+figures were computed from the stated number of pixels. They do **not** re-derive
+the statistics themselves, which would require the ion counts.
+
+Generated PNGs are not committed (22 MB, regenerable from the source data); the
+report figures used in the write-up are in [`docs/figures/`](docs/figures/).
 
 ### Substituting your own ToF-SIMS data
 
@@ -227,6 +243,10 @@ python scripts/run_pipeline.py --list-stages
 | `stats` | Kruskal-Wallis, Dunn's post-hoc, colocalization | `04_statistical_results.csv`, `04_*.png` | ~30 s |
 | `figures` | Publication-style master figures | `05_fig*.png` | ~20 s |
 
+None of the arrays in the "Key outputs" column are committed to this repository;
+they are what a run produces on your own data. See
+[Data availability](#data-availability) for what is published.
+
 **A full run takes about 6 minutes** on a normal laptop (7 images, 640×640, ~48k
 foreground pixels), producing 47 files. UMAP dominates that time — `--no-umap`
 brings a complete run down to roughly 90 seconds at the cost of the UMAP and
@@ -296,7 +316,7 @@ is what the interpretation rests on.
 ├── configs/pipeline_config.yaml   # every tunable parameter
 ├── Data/
 │   ├── raw/                       # instrument .bmp exports (NOT distributed)
-│   └── processed/                 # cached artefacts (committed) + figures (not)
+│   └── processed/                 # labels, mask, metrics (committed); no measurements
 ├── src/
 │   ├── config.py                  # config loading and path resolution
 │   ├── pipeline.py                # stage orchestration
@@ -310,6 +330,7 @@ is what the interpretation rests on.
 │   └── executed/                  # same notebooks with outputs rendered inline
 ├── scripts/run_pipeline.py        # CLI entry point
 ├── tests/                         # unit + end-to-end regression tests
+├── docs/figures/                  # report figures used in the write-up
 └── docs/legacy/                   # superseded exploratory scripts, kept for reference
 ```
 
