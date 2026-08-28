@@ -2,7 +2,7 @@ import numpy as np
 import struct
 import matplotlib.pyplot as plt
 # Raw dataset file path
-filepath = r"C:\Users\amanb\OneDrive\Desktop\dissertation\Fossil Fly\Data\23.11.16 Fossil Fly\Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_62.96198±0.01675u.bmp"
+filepath = r"Data/raw/YOUR_FILE.bmp"  # point this at a file on your machine
 
 # Open file, skip the 54-byte BMP header, grab the raw pixel bytes
 with open(filepath, 'rb') as f:
@@ -109,7 +109,7 @@ print("=" * 60)
 import numpy as np
 import matplotlib.pyplot as plt
 
-filepath = r"C:\Users\amanb\OneDrive\Desktop\dissertation\Fossil Fly\Data\23.11.16 Fossil Fly\Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_62.96198±0.01675u.bmp"
+filepath = r"Data/raw/YOUR_FILE.bmp"  # point this at a file on your machine
 
 # Load raw image payload
 with open(filepath, 'rb') as f:
