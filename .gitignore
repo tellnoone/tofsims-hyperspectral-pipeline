@@ -32,6 +32,11 @@ Thumbs.db
 Data/raw/
 data/raw/
 
+# The decoded ion-count stack is the same measurement data in a different
+# container, so it is withheld on the same basis as the raw exports.
+Data/processed/fossilfly_clean_stack.npz
+data/processed/fossilfly_clean_stack.npz
+
 # Generated figures are large and fully regenerable; the report figures used in
 # the write-up are kept in docs/figures/ instead.
 Data/processed/*.png
