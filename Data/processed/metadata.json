@@ -1,0 +1,93 @@
+[
+  {
+    "key": "Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_103.91326±0.02297u",
+    "polarity": "Neg",
+    "mass": "103.91326±0.02297u",
+    "shots": 400,
+    "current": "30pA",
+    "dimensions": "10x10x64pix",
+    "matched": true,
+    "shape": [
+      640,
+      640
+    ]
+  },
+  {
+    "key": "Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_123.94783±0.02297u",
+    "polarity": "Neg",
+    "mass": "123.94783±0.02297u",
+    "shots": 400,
+    "current": "30pA",
+    "dimensions": "10x10x64pix",
+    "matched": true,
+    "shape": [
+      640,
+      640
+    ]
+  },
+  {
+    "key": "Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_62.96198±0.01675u",
+    "polarity": "Neg",
+    "mass": "62.96198±0.01675u",
+    "shots": 400,
+    "current": "30pA",
+    "dimensions": "10x10x64pix",
+    "matched": true,
+    "shape": [
+      640,
+      640
+    ]
+  },
+  {
+    "key": "Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_78.94747±0.01675u",
+    "polarity": "Neg",
+    "mass": "78.94747±0.01675u",
+    "shots": 400,
+    "current": "30pA",
+    "dimensions": "10x10x64pix",
+    "matched": true,
+    "shape": [
+      640,
+      640
+    ]
+  },
+  {
+    "key": "Fly_Neg_C60_30pA_10x10x64pix_400sh-35V_96.93916±0.02297u",
+    "polarity": "Neg",
+    "mass": "96.93916±0.02297u",
+    "shots": 400,
+    "current": "30pA",
+    "dimensions": "10x10x64pix",
+    "matched": true,
+    "shape": [
+      640,
+      640
+    ]
+  },
+  {
+    "key": "Fly_Pos_C60_30pA_10x14x64pix_100sh_53.93733±0.015u",
+    "polarity": "Pos",
+    "mass": "53.93733±0.015u",
+    "shots": 100,
+    "current": "30pA",
+    "dimensions": "10x14x64pix",
+    "matched": true,
+    "shape": [
+      896,
+      640
+    ]
+  },
+  {
+    "key": "FossilFly Pos 8mm x 11.2mm 53.93733±0.015u",
+    "polarity": "Pos",
+    "mass": "53.93733±0.015u",
+    "shots": null,
+    "current": null,
+    "dimensions": null,
+    "matched": false,
+    "shape": [
+      896,
+      640
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+channel,mass_label,H_statistic,p_value,p_display,eta_squared,significant,effect_size,n_pixels,n_segments
+m/z 62.96 (Neg),m/z 62.96,8855.09,0.0,<1e-50,0.1834,***,Large,48294,3
+m/z 78.95 (Neg),m/z 78.95,35308.19,0.0,<1e-50,0.7311,***,Large,48294,3
+m/z 96.94 (Neg),m/z 96.94,6228.32,0.0,<1e-50,0.129,***,Medium,48294,3
+m/z 103.91 (Neg),m/z 103.91,27580.78,0.0,<1e-50,0.5711,***,Large,48294,3
+m/z 123.95 (Neg),m/z 123.95,25030.64,0.0,<1e-50,0.5183,***,Large,48294,3

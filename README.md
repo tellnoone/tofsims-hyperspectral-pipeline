@@ -21,11 +21,20 @@ python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-python scripts/run_pipeline.py
+# Reproduce every reported result from the cached artefacts:
+python scripts/run_pipeline.py --stage stats,figures
 ```
 
-That runs all six stages over `data/raw/` and writes every array, table and figure
-to `data/processed/`.
+**The raw instrument exports are not distributed with this repository** (see
+[Data availability](#data-availability)). The cached intermediate artefacts in
+`Data/processed/` are committed instead, so the command above reproduces the
+reported statistics and figures without them.
+
+With your own raw data in place, the full six-stage run is just:
+
+```bash
+python scripts/run_pipeline.py
+```
 
 ## Results at a glance
 
@@ -39,8 +48,76 @@ epsilon-squared 0.73, all p < 0.001):
 
 ![Statistical validation](docs/figures/05_fig4_statistical_validation.png)
 
-The remaining report figures are in [`docs/figures/`](docs/figures/). Outputs are not
-committed — regenerate them all with one command.
+The remaining report figures are in [`docs/figures/`](docs/figures/).
+
+---
+
+## Data availability
+
+The raw ToF-SIMS exports (`Data/raw/*.bmp`) are **not included in this repository**.
+The instrument data belongs to the analytical facility that acquired it, and it is
+not redistributed here for permissions reasons.
+
+This does not prevent verification. The pipeline's cached intermediate artefacts
+**are** committed under `Data/processed/`, and every result reported in the
+write-up can be regenerated from them:
+
+```bash
+python scripts/run_pipeline.py --stage stats,figures
+```
+
+Running that with no raw data present reproduces the published values exactly —
+peak effect size epsilon-squared = 0.7311 at m/z 78.95, segment sizes
+{32238, 8924, 7132}, all five channels at p < 0.001.
+
+### What is committed, and what each file lets you check
+
+| Artefact | Size | Lets you reproduce |
+|---|---|---|
+| `fossilfly_clean_stack.npz` | 288 KB | The parsed ion-count images — the input to every later stage |
+| `metadata.json` | 4 KB | Acquisition metadata recovered from the filenames |
+| `02b_pca_components.npz` | 3.0 MB | PCA scores, loadings, explained variance |
+| `02b_nmf_components.npz` | 1.5 MB | Endmember spectra and abundance maps |
+| `02b_umap_embedding.npz` | 968 KB | UMAP embedding and spatial maps |
+| `02b_foreground_mask.npy` | 404 KB | The 48,294-pixel foreground mask |
+| `fossilfly_segments.npz` | 932 KB | All four segmentations and their labels |
+| `*.csv` | 13 KB | Statistical results, agreement metrics, colocalization |
+
+Only the `load` stage requires the raw `.bmp` files. Every other stage —
+`overview`, `decompose`, `segment`, `stats`, `figures` — reads from the cached
+artefacts and runs without them.
+
+Generated PNGs are not committed (22 MB, and fully regenerable); the report figures
+used in the write-up are kept in [`docs/figures/`](docs/figures/).
+
+### Substituting your own ToF-SIMS data
+
+Because the raw exports are absent, the committed artefacts describe *this*
+specimen. To analyse your own data you re-run the `load` stage, which rebuilds
+`fossilfly_clean_stack.npz` and `metadata.json` from your files and becomes the new
+starting point for every downstream stage:
+
+```bash
+# Write to a separate directory to leave the committed artefacts intact:
+python scripts/run_pipeline.py --raw-dir /path/to/your_data --output-dir results/your_run
+```
+
+Omit `--output-dir` and the run overwrites `Data/processed/` — fine, since
+everything there is regenerable, but you lose the cached reference results.
+
+Two things are worth checking on a first run with an unfamiliar instrument:
+
+- **The export layout.** The reader assumes a 54-byte BMP header followed by
+  interleaved `uint16` planes, taking plane 1 as the ion counts. Adjust
+  `io.header_bytes` / `io.num_channels` / `io.channel_index` in
+  [`configs/pipeline_config.yaml`](configs/pipeline_config.yaml) if yours differs.
+  The `01_raw_overview.png` figure is the fastest check — your specimen should be
+  visible in it.
+- **The filename convention**, if you want acquisition metadata recovered. See
+  [Processing your own data](#processing-your-own-data) below.
+
+Everything else adapts on its own. See the next section for the full list of what
+is inferred rather than configured.
 
 ---
 
@@ -192,9 +269,9 @@ is what the interpretation rests on.
 
 ```
 ├── configs/pipeline_config.yaml   # every tunable parameter
-├── data/
-│   ├── raw/                       # instrument .bmp exports
-│   └── processed/                 # generated arrays, tables, figures
+├── Data/
+│   ├── raw/                       # instrument .bmp exports (NOT distributed)
+│   └── processed/                 # cached artefacts (committed) + figures (not)
 ├── src/
 │   ├── config.py                  # config loading and path resolution
 │   ├── pipeline.py                # stage orchestration

@@ -1,0 +1,11 @@
+method_a,method_b,ARI,NMI
+dominant,kmeans_pca,0.1318,0.1514
+dominant,kmeans_pca_over,0.1465,0.1711
+dominant,gmm,0.5351,0.4053
+dominant,hdbscan,0.2107,0.2734
+kmeans_pca,kmeans_pca_over,0.3661,0.5343
+kmeans_pca,gmm,0.076,0.137
+kmeans_pca,hdbscan,0.0144,0.0837
+kmeans_pca_over,gmm,0.1836,0.1831
+kmeans_pca_over,hdbscan,0.0519,0.1011
+gmm,hdbscan,0.382,0.3517

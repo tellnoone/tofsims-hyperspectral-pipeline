@@ -1,0 +1,4 @@
+segment,segment_name,pearson_r,p_value,p_display,interpretation
+0,Segment 1 (EM1),-0.0011,0.8057976056598808,0.806,Weak / no colocalization
+1,Segment 2 (EM2),-0.0069,0.13140095505403596,0.131,Weak / no colocalization
+2,Segment 3 (EM3),0.009,0.0480586961710174,0.048,Weak / no colocalization
