@@ -21,19 +21,24 @@ python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Reproduce every reported result from the cached artefacts:
-python scripts/run_pipeline.py --stage stats,figures
+# Runs the full pipeline end to end on generated test data:
+pytest
 ```
 
-**The raw instrument exports are not distributed with this repository** (see
-[Data availability](#data-availability)). The cached intermediate artefacts in
-`Data/processed/` are committed instead, so the command above reproduces the
-reported statistics and figures without them.
+Expect **24 passed, 7 skipped** — the skips are the regression tests that need the
+original instrument data, which is not distributed (see
+[Data availability](#data-availability)).
 
-With your own raw data in place, the full six-stage run is just:
+The measurement data underlying this study is withheld pending permission from the
+analysing facility, so **the pipeline cannot be re-run on the fossil specimen from
+this repository**. What you can do is run the complete pipeline on synthetic data
+(the `pytest` command above), and inspect the committed result artefacts described
+in [Data availability](#data-availability).
+
+With your own ToF-SIMS data in place, the full six-stage run is:
 
 ```bash
-python scripts/run_pipeline.py
+python scripts/run_pipeline.py --raw-dir /path/to/your_data --output-dir results/your_run
 ```
 
 ## Results at a glance
@@ -54,48 +59,68 @@ The remaining report figures are in [`docs/figures/`](docs/figures/).
 
 ## Data availability
 
-The raw ToF-SIMS exports (`Data/raw/*.bmp`) are **not included in this repository**.
-The instrument data belongs to the analytical facility that acquired it, and it is
-not redistributed here for permissions reasons.
+**Both the raw instrument exports and the decoded ion-count data are withheld
+pending permission from the analysing facility.** Specifically, neither of these
+is distributed:
 
-This does not prevent verification. The pipeline's cached intermediate artefacts
-**are** committed under `Data/processed/`, and every result reported in the
-write-up can be regenerated from them:
+- `Data/raw/*.bmp` — the instrument's native exports
+- `Data/processed/fossilfly_clean_stack.npz` — the decoded ion-count images
+
+The second is excluded on the same basis as the first: it is the same measurement
+data in a different container, so committing it would redistribute exactly what
+withholding the raw files is meant to protect.
+
+### What this means for verification
+
+Be aware of the limit this imposes. Every pipeline stage that touches per-pixel
+intensities needs the ion-count stack, so **no stage of the analysis can be re-run
+against the fossil dataset from this repository**. Running `segment`, `stats` or
+`figures` without it fails with a clear error pointing at the missing stack.
+
+Two things remain possible:
+
+**1. Inspect the committed result artefacts.** The downstream outputs are committed,
+so the reported numbers can be read back and checked for internal consistency:
+
+| Check | Artefact | Value |
+|---|---|---|
+| Segment sizes | `fossilfly_segments.npz` | {32238, 8924, 7132} |
+| Foreground pixel count | `02b_foreground_mask.npy` | 48,294 |
+| Segment labels re-derived from NMF abundances | `02b_nmf_components.npz` + `fossilfly_segments.npz` | exact match |
+| NMF rank and reconstruction error | `02b_nmf_components.npz` | k = 3, 145738.2 |
+| NMF endmember spectra | `02b_nmf_components.npz` | `W` (409600x3), `H` (3x5) |
+| PCA explained variance | `02b_pca_components.npz` | 80.42% in first 3 |
+| Reported statistics | `04_statistical_results.csv` | peak eps-squared 0.7311 at m/z 78.95 |
+| Cross-method agreement | `03_cross_method_agreement.csv` | ARI/NMI per method pair |
+
+The third row is the only genuine recomputation available: the dominant-endmember
+segmentation can be re-derived from the NMF abundance maps and checked against the
+stored labels, and it matches exactly.
+
+**What cannot be checked** without the ion-count stack: re-running Kruskal-Wallis or
+Dunn's post-hoc, recomputing segment chemistry profiles, re-fitting PCA/NMF/UMAP
+from source, or regenerating the Figure 1 channel maps and Figure 4 chemistry
+panels. Those all require per-pixel intensities.
+
+**2. Run the pipeline on synthetic data.** `tests/test_pipeline_end_to_end.py::TestUnseenDataset`
+builds a dataset from scratch — a different pixel grid, channel count and naming
+scheme — and runs all six stages over it with the stock config. This verifies the
+code end to end, independently of any withheld data:
 
 ```bash
-python scripts/run_pipeline.py --stage stats,figures
+pytest tests/test_pipeline_end_to_end.py::TestUnseenDataset -v
 ```
 
-Running that with no raw data present reproduces the published values exactly —
-peak effect size epsilon-squared = 0.7311 at m/z 78.95, segment sizes
-{32238, 8924, 7132}, all five channels at p < 0.001.
-
-### What is committed, and what each file lets you check
-
-| Artefact | Size | Lets you reproduce |
-|---|---|---|
-| `fossilfly_clean_stack.npz` | 288 KB | The parsed ion-count images — the input to every later stage |
-| `metadata.json` | 4 KB | Acquisition metadata recovered from the filenames |
-| `02b_pca_components.npz` | 3.0 MB | PCA scores, loadings, explained variance |
-| `02b_nmf_components.npz` | 1.5 MB | Endmember spectra and abundance maps |
-| `02b_umap_embedding.npz` | 968 KB | UMAP embedding and spatial maps |
-| `02b_foreground_mask.npy` | 404 KB | The 48,294-pixel foreground mask |
-| `fossilfly_segments.npz` | 932 KB | All four segmentations and their labels |
-| `*.csv` | 13 KB | Statistical results, agreement metrics, colocalization |
-
-Only the `load` stage requires the raw `.bmp` files. Every other stage —
-`overview`, `decompose`, `segment`, `stats`, `figures` — reads from the cached
-artefacts and runs without them.
-
-Generated PNGs are not committed (22 MB, and fully regenerable); the report figures
-used in the write-up are kept in [`docs/figures/`](docs/figures/).
+Generated PNGs are also not committed (22 MB, and regenerable given the source
+data); the report figures used in the write-up are in
+[`docs/figures/`](docs/figures/).
 
 ### Substituting your own ToF-SIMS data
 
-Because the raw exports are absent, the committed artefacts describe *this*
-specimen. To analyse your own data you re-run the `load` stage, which rebuilds
-`fossilfly_clean_stack.npz` and `metadata.json` from your files and becomes the new
-starting point for every downstream stage:
+The committed artefacts describe *this* specimen, and the ion-count stack they were
+derived from is not included. Analysing your own data therefore starts from the
+`load` stage, which builds `fossilfly_clean_stack.npz` and `metadata.json` from your
+files — the starting point for every downstream stage:
 
 ```bash
 # Write to a separate directory to leave the committed artefacts intact:
@@ -322,6 +347,15 @@ skips the UMAP and HDBSCAN steps rather than failing.
 ---
 
 ## Known limitations
+
+- **UMAP and HDBSCAN results are not stable between runs.** Re-running the
+  `decompose` stage produces a slightly different UMAP embedding, and the HDBSCAN
+  clustering that consumes it has been observed to report 4, 6 or 8 clusters across
+  runs (noise fraction 42-54%). HDBSCAN itself is deterministic on a fixed
+  embedding; the variation originates upstream in UMAP. The primary results — the
+  NMF decomposition, the dominant-endmember segmentation and every statistic
+  derived from them — are exactly reproducible. Treat the HDBSCAN cluster count as
+  indicative rather than a reportable figure.
 
 - Endmember ordering is not stable across datasets or NMF re-fits, so segments are
   labelled generically (`Segment 1 (EM1)`). Supply `channel_semantics.segment_labels`
