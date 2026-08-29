@@ -27,6 +27,25 @@ EXPECTED_NMF_ERROR = 145738.2
 EXPECTED_PCA_TOP3_VARIANCE = 0.8042
 EXPECTED_MAX_EFFECT_SIZE = 0.7311
 
+# Cross-method agreement, measured on all foreground pixels. These are the numbers
+# the validation argument rests on, so they are pinned rather than merely observed.
+# Pairs involving HDBSCAN are deliberately absent: it runs on the UMAP embedding,
+# which is not reproducible even when seeded (see TestStochasticReproducibility).
+EXPECTED_AGREEMENT = {
+    ("dominant", "kmeans_pca"): (0.0744, 0.0852),
+    ("dominant", "kmeans_pca_over"): (0.0707, 0.1082),
+    ("dominant", "gmm"): (0.6761, 0.4961),
+    ("kmeans_pca", "kmeans_pca_over"): (0.3026, 0.4540),
+    ("kmeans_pca", "gmm"): (0.0725, 0.1043),
+    ("kmeans_pca_over", "gmm"): (0.1341, 0.1297),
+}
+EXPECTED_SILHOUETTE = {
+    "Dominant NMF endmember": 0.260440,
+    "K-Means k=3 (PCA)": 0.832256,
+    "K-Means k=4 (PCA)": 0.665740,
+    "GMM k=3 (PCA)": 0.232324,
+}
+
 
 @pytest.fixture(scope="class")
 def bundled_run(tmp_path_factory, real_data_dir):
@@ -177,3 +196,73 @@ class TestUnseenDataset:
         coloc_path = synthetic_run / constants.COLOCALIZATION_FILE
         assert coloc_path.exists()
         assert len(pd.read_csv(coloc_path)) >= 2
+
+
+class TestStochasticReproducibility:
+    """
+    Pins the cross-method agreement metrics, which previously drifted between runs.
+
+    The estimators were always seeded; the instability came from the agreement
+    metrics being scored on a single global mask derived from HDBSCAN's noise set.
+    Because HDBSCAN runs on the UMAP embedding, and UMAP is not reproducible even
+    with a fixed random_state, roughly half the foreground moved in and out of the
+    comparison between runs, and every pairwise score moved with it - including
+    dominant-vs-GMM, whose labels never changed at all.
+
+    Agreement is now scored per pair on the pixels both methods assigned, so pairs
+    that assign every pixel are measured on the full foreground and are stable.
+    """
+
+    def test_cross_method_agreement_is_reproducible(self, bundled_run):
+        agreement = pd.read_csv(bundled_run / "03_cross_method_agreement.csv")
+        pairs = {
+            (row.method_a, row.method_b): (row.ARI, row.NMI)
+            for row in agreement.itertuples()
+        }
+
+        for pair, (expected_ari, expected_nmi) in EXPECTED_AGREEMENT.items():
+            assert pair in pairs, f"missing agreement pair {pair}"
+            actual_ari, actual_nmi = pairs[pair]
+            assert actual_ari == pytest.approx(expected_ari, abs=1e-4), (
+                f"ARI drifted for {pair}: {actual_ari} != {expected_ari}"
+            )
+            assert actual_nmi == pytest.approx(expected_nmi, abs=1e-4), (
+                f"NMI drifted for {pair}: {actual_nmi} != {expected_nmi}"
+            )
+
+    def test_agreement_is_scored_on_the_full_foreground(self, bundled_run):
+        """
+        The regression guard proper.
+
+        Every pinned pair assigns all foreground pixels, so each must be scored on
+        all 48,294 of them. If a future change reintroduces a global noise mask,
+        this count drops and the failure names the cause directly.
+        """
+        agreement = pd.read_csv(bundled_run / "03_cross_method_agreement.csv")
+        for row in agreement.itertuples():
+            if (row.method_a, row.method_b) in EXPECTED_AGREEMENT:
+                assert row.n_pixels == EXPECTED_FOREGROUND_PIXELS, (
+                    f"{row.method_a} vs {row.method_b} scored on {row.n_pixels} pixels, "
+                    f"not the full foreground - a global mask has been reintroduced"
+                )
+
+    def test_deterministic_method_silhouettes_are_reproducible(self, bundled_run):
+        metrics = pd.read_csv(bundled_run / constants.SEGMENTATION_METRICS_FILE)
+        actual = dict(zip(metrics["method"], metrics["silhouette"]))
+
+        for method, expected in EXPECTED_SILHOUETTE.items():
+            assert method in actual, f"missing method {method}"
+            assert actual[method] == pytest.approx(expected, abs=1e-5)
+
+    def test_hdbscan_is_excluded_from_the_pinned_metrics(self, bundled_run):
+        """
+        Documents, as an executable assertion, what is *not* guaranteed.
+
+        HDBSCAN's cluster count and noise fraction vary between runs because the
+        UMAP embedding it consumes does. Pinning them would produce a test that
+        fails at random, so they are recorded as unstable instead.
+        """
+        assert not any("HDBSCAN" in name for name in EXPECTED_SILHOUETTE)
+        assert not any(
+            "hdbscan" in pair[0] or "hdbscan" in pair[1] for pair in EXPECTED_AGREEMENT
+        )

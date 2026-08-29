@@ -25,7 +25,7 @@ pip install -r requirements.txt
 pytest
 ```
 
-Expect **24 passed, 7 skipped** — the skips are the regression tests that need the
+Expect **24 passed, 11 skipped** — the skips are the regression tests that need the
 original instrument data, which is not distributed (see
 [Data availability](#data-availability)).
 
@@ -92,7 +92,7 @@ permit recovery of ion-count values.
 pytest
 ```
 
-Expect **24 passed, 7 skipped**. The skips are the regression tests that require the
+Expect **24 passed, 11 skipped**. The skips are the regression tests that require the
 original dataset. Among the passes,
 `tests/test_pipeline_end_to_end.py::TestUnseenDataset` builds a synthetic dataset
 from scratch — a different pixel grid, channel count and naming scheme — and runs
@@ -120,7 +120,7 @@ all pass against a fresh clone:
 | Segment sizes from `labels_dominant` | {32238, 8924, 7132} |
 | Foreground pixel count from the mask | 48,294 |
 | `seg_dominant` map agrees with labels scattered onto the mask | consistent |
-| HDBSCAN noise fraction recomputed from labels vs `segmentation_metrics.csv` | 52.72% both |
+| HDBSCAN noise fraction recomputed from labels vs `segmentation_metrics.csv` | agrees (value varies per run) |
 | `n_pixels` in `04_statistical_results.csv` vs the mask | agrees |
 | UMAP embedding row count vs the mask | agrees |
 
@@ -298,9 +298,25 @@ so the results are comparable pixel-for-pixel.
 **Why four segmentations.** Unsupervised segment boundaries are a hypothesis. The
 pipeline reports pairwise ARI/NMI between methods and cluster purity *against a
 majority-class baseline*, rather than reporting a single partition as fact. On the
-bundled dataset the methods largely disagree (ARI ≈ 0.09 between the dominant-endmember
-and K-Means partitions) — that low agreement is itself a finding about how separable
-the chemistry is, and the figures state it rather than hide it.
+bundled dataset the Gaussian mixture corroborates the dominant-endmember partition
+(ARI 0.6761) while K-Means on PCA scores does not (ARI 0.0744) — a real finding
+about which feature spaces separate this chemistry, not a defect.
+
+**How agreement is scored.** Each pair of methods is compared on the pixels *both*
+methods actually assigned, computed per pair. The `n_pixels` column of
+`03_cross_method_agreement.csv` records that basis explicitly for every row.
+
+This matters because a single global mask would tie every comparison to the noise
+set of whichever method produces one. HDBSCAN discards roughly half the foreground,
+and that set moves between runs, so scoring all pairs against it made the
+K-Means-vs-GMM and dominant-vs-GMM numbers drift even though neither method's
+labels ever changed. Pairs that assign every pixel are now scored on the full
+48,294-pixel foreground and are reproducible run to run.
+
+**Seeding.** Every stochastic component — PCA, NMF, K-Means, the Gaussian mixture,
+UMAP, and the figure subsampling — draws its seed from the single `random_seed`
+entry at the top of `configs/pipeline_config.yaml`. No seed is hardcoded at a call
+site, so changing that one value changes the whole pipeline consistently.
 
 **Why non-parametric statistics.** Ion-count distributions are heavily zero-inflated
 and non-normal, so Kruskal-Wallis is used per channel with Dunn's post-hoc and
@@ -369,14 +385,30 @@ skips the UMAP and HDBSCAN steps rather than failing.
 
 ## Known limitations
 
-- **UMAP and HDBSCAN results are not stable between runs.** Re-running the
-  `decompose` stage produces a slightly different UMAP embedding, and the HDBSCAN
-  clustering that consumes it has been observed to report 4, 6 or 8 clusters across
-  runs (noise fraction 42-54%). HDBSCAN itself is deterministic on a fixed
-  embedding; the variation originates upstream in UMAP. The primary results — the
-  NMF decomposition, the dominant-endmember segmentation and every statistic
-  derived from them — are exactly reproducible. Treat the HDBSCAN cluster count as
-  indicative rather than a reportable figure.
+- **UMAP is not reproducible, even with a fixed seed, and HDBSCAN inherits that.**
+  Two UMAP runs on identical input with the same `random_seed` produce different
+  embeddings (max coordinate difference ~52). Forcing single-threaded execution
+  (`NUMBA_NUM_THREADS=1`, `OMP_NUM_THREADS=1`, `PYTHONHASHSEED=0`) does not fix it;
+  the non-determinism is in `pynndescent`'s approximate nearest-neighbour graph
+  construction, which `random_state` does not fully control.
+
+  HDBSCAN is deterministic on a fixed embedding, but it consumes the UMAP output,
+  so its results vary too. Measured across three full runs from scratch:
+
+  | Run | Silhouette | Clusters | Noise |
+  |---|---|---|---|
+  | 1 | 0.269263 | 5 | 50.98% |
+  | 2 | 0.168891 | 6 | 52.27% |
+  | 3 | 0.266272 | 8 | 44.62% |
+
+  **HDBSCAN cluster counts, noise fractions and any HDBSCAN-involving ARI/NMI
+  should not be cited as fixed values.** Report them as a range, or qualitatively.
+  Everything else is exactly reproducible: across those same three runs,
+  `04_statistical_results.csv`, `04_dunn_posthoc.csv`, `04_colocalization.csv` and
+  `metadata.json` were byte-identical, and every non-HDBSCAN row of
+  `03_cross_method_agreement.csv` and `segmentation_metrics.csv` was unchanged.
+  `tests/test_pipeline_end_to_end.py::TestStochasticReproducibility` pins those
+  stable values and deliberately excludes the HDBSCAN ones.
 
 - Endmember ordering is not stable across datasets or NMF re-fits, so segments are
   labelled generically (`Segment 1 (EM1)`). Supply `channel_semantics.segment_labels`

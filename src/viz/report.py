@@ -203,10 +203,23 @@ def figure_segmentation_comparison(
         axis.axis("off")
 
     if not agreement.empty:
-        caption = (
-            f"Pairwise agreement: ARI {agreement['ARI'].min():.2f}-{agreement['ARI'].max():.2f}, "
-            f"NMI {agreement['NMI'].min():.2f}-{agreement['NMI'].max():.2f}"
+        # HDBSCAN runs on the UMAP embedding, which is not reproducible even when
+        # seeded, so its agreement scores move between runs. Quoting a range that
+        # included them would put a number in the caption that cannot be cited.
+        involves_hdbscan = agreement.apply(
+            lambda row: "hdbscan" in (row["method_a"], row["method_b"]), axis=1
         )
+        stable = agreement[~involves_hdbscan]
+        if stable.empty:
+            caption = "Pairwise agreement not computed for reproducible methods."
+        else:
+            caption = (
+                f"Pairwise agreement (reproducible methods): "
+                f"ARI {stable['ARI'].min():.2f}-{stable['ARI'].max():.2f}, "
+                f"NMI {stable['NMI'].min():.2f}-{stable['NMI'].max():.2f}"
+            )
+            if involves_hdbscan.any():
+                caption += "; HDBSCAN pairs vary between runs and are excluded"
     else:
         caption = "Pairwise agreement not computed."
 
