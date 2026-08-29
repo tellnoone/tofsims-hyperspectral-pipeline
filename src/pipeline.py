@@ -144,7 +144,7 @@ def stage_decompose(config: Config) -> StageResult:
     prepared = decomp.prepare_pixels(cube, eps=float(config.get("preprocessing.eps", 1e-8)))
     _log(f"[decompose] {prepared.n_foreground:,} foreground pixels of {len(prepared.fg_mask):,}")
 
-    random_state = int(config.get("decomposition.random_state", 42))
+    random_state = config.random_seed
 
     n_pcs = None if config.is_auto("decomposition.pca.n_components") else int(
         config.get("decomposition.pca.n_components")
@@ -266,7 +266,7 @@ def stage_segment(config: Config) -> StageResult:
         if config.is_auto("segmentation.oversegment_k")
         else int(config.get("segmentation.oversegment_k"))
     )
-    random_state = int(config.get("decomposition.random_state", 42))
+    random_state = config.random_seed
     _log(f"[segment] {len(fg_idx):,} foreground pixels, {n_clusters} segments")
 
     labels_dominant = cluster.dominant_endmember_labels(X_nmf)
@@ -350,11 +350,9 @@ def stage_segment(config: Config) -> StageResult:
             config.get("segmentation.hdbscan.sweep_min_samples", [5, 10, 20]),
         )
 
-    # Agreement is measured only on pixels every method actually assigned.
-    restrict = (
-        label_sets["hdbscan"] != cluster.NOISE_LABEL if "hdbscan" in label_sets else None
-    )
-    agreement = cluster.agreement_metrics(label_sets, restrict_mask=restrict)
+    # Scored per pair on the pixels both methods assigned, so that comparisons not
+    # involving HDBSCAN stay independent of its (non-reproducible) noise set.
+    agreement = cluster.agreement_metrics(label_sets)
     purity = cluster.segment_purity(labels_dominant, labels_kmeans)
 
     label_images = {

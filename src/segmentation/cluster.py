@@ -173,20 +173,35 @@ def safe_silhouette(X: np.ndarray, labels: np.ndarray) -> float:
 def agreement_metrics(
     label_sets: Dict[str, np.ndarray], restrict_mask: Optional[np.ndarray] = None
 ) -> pd.DataFrame:
-    """Pairwise ARI and NMI between every pair of segmentations."""
+    """
+    Pairwise ARI and NMI between every pair of segmentations.
+
+    Each pair is scored on the pixels both methods actually assigned, computed per
+    pair rather than globally. A single global mask would tie every comparison to
+    the noise set of whichever method produces one: with HDBSCAN discarding around
+    half the foreground, the K-Means-vs-GMM score would then be measured on a
+    subset that moves whenever HDBSCAN's embedding does, even though neither
+    method's labels changed. Pairs that assign every pixel are therefore scored on
+    the full foreground and are reproducible run to run.
+
+    `restrict_mask` further narrows the comparison for every pair when supplied.
+    """
     names = list(label_sets)
     rows = []
     for i, first in enumerate(names):
         for second in names[i + 1:]:
             a, b = label_sets[first], label_sets[second]
+            valid = (a != NOISE_LABEL) & (b != NOISE_LABEL)
             if restrict_mask is not None:
-                a, b = a[restrict_mask], b[restrict_mask]
+                valid &= restrict_mask
+            a, b = a[valid], b[valid]
             rows.append(
                 {
                     "method_a": first,
                     "method_b": second,
                     "ARI": round(float(adjusted_rand_score(a, b)), 4),
                     "NMI": round(float(normalized_mutual_info_score(a, b)), 4),
+                    "n_pixels": int(valid.sum()),
                 }
             )
     return pd.DataFrame(rows)

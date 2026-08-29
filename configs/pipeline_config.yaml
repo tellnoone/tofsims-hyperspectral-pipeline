@@ -6,7 +6,12 @@
 
 project:
   name: "tofsims_fossilfly_project"
-  version: "2.0.0"
+  version: "2.1.0"
+
+# Single seed for every stochastic estimator in the pipeline (PCA, NMF, K-Means,
+# GMM, UMAP, and figure subsampling). Change it here and nowhere else.
+# Note: UMAP is not fully reproducible even when seeded - see README.
+random_seed: 42
 
 dataset:
   raw_dir: "data/raw"
@@ -58,7 +63,6 @@ preprocessing:
   eps: 1.0e-8
 
 decomposition:
-  random_state: 42
   scatter_subsample: 20000
   pca:
     n_components: auto              # auto -> keep all channels

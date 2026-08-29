@@ -41,6 +41,19 @@ class Config:
         figures = self.get("dataset.figures_dir") or self.get("dataset.processed_dir")
         self.figures_dir = resolve_dir(figures)
 
+    @property
+    def random_seed(self) -> int:
+        """
+        The one seed every stochastic estimator uses.
+
+        Falls back to the older decomposition.random_state key so existing config
+        files keep working.
+        """
+        value = self.get("random_seed")
+        if value is None:
+            value = self.get("decomposition.random_state", 42)
+        return int(value)
+
     # ------------------------------------------------------------------ access
     def get(self, dotted_key: str, default: Any = None) -> Any:
         """Read a nested value, e.g. get('decomposition.nmf.max_iter')."""
