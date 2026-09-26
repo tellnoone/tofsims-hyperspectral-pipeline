@@ -1,5 +1,7 @@
 # ToF-SIMS Hyperspectral Analysis Pipeline
 
+[![Tests](https://github.com/tellnoone/tofsims-hyperspectral-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/tellnoone/tofsims-hyperspectral-pipeline/actions/workflows/tests.yml)
+
 A reproducible Python pipeline for Time-of-Flight Secondary Ion Mass Spectrometry
 (ToF-SIMS) hyperspectral imaging. It reads the instrument's non-standard BMP
 exports, decomposes the ion-count cube into chemical endmembers, segments the
@@ -14,8 +16,8 @@ endmembers are all derived from the data or set in one config file.
 ## Quick start
 
 ```bash
-git clone <your-repo-url>
-cd tofsims-pipeline
+git clone https://github.com/tellnoone/tofsims-hyperspectral-pipeline.git
+cd tofsims-hyperspectral-pipeline
 
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
@@ -374,7 +376,7 @@ Two groups matter:
 
 ## Requirements
 
-Python 3.9+ and the packages in [`requirements.txt`](requirements.txt): numpy, pandas,
+Python 3.9+ (CI tests 3.9 and 3.13) and the packages in [`requirements.txt`](requirements.txt): numpy, pandas,
 scipy, matplotlib, scikit-learn (≥1.3, for `sklearn.cluster.HDBSCAN`),
 scikit-posthocs, umap-learn, PyYAML, pytest.
 
@@ -417,3 +419,13 @@ skips the UMAP and HDBSCAN steps rather than failing.
   present.
 - Chemical identity of a mass channel is not inferred; the optional
   `channel_semantics.masses` map is used for figure labels only.
+
+---
+
+## License
+
+The code is released under the [MIT License](LICENSE). The licence does not extend
+to the measurement data or anything derived from it: the files in `Data/processed/`,
+the figures in `docs/figures/`, the executed notebooks' outputs and the report in
+`docs/legacy/` are published for inspection only, and remain subject to the
+analysing facility's permission described in [Data availability](#data-availability).
