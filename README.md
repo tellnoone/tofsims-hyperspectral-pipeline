@@ -16,8 +16,8 @@ endmembers are all derived from the data or set in one config file.
 ## Quick start
 
 ```bash
-git clone <your-repo-url>
-cd tofsims-pipeline
+git clone https://github.com/tellnoone/tofsims-hyperspectral-pipeline.git
+cd tofsims-hyperspectral-pipeline
 
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
